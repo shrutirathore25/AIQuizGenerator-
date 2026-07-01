@@ -1,0 +1,77 @@
+@model List<QuizQuestion>
+@{
+    ViewData["Title"] = "Results";
+    int score = ViewBag.Score;
+    int total = ViewBag.Total;
+    int elapsed = ViewBag.ElapsedSeconds;
+    double pct = total > 0 ? (double)score / total * 100 : 0;
+    string grade = pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : pct >= 60 ? "C" : pct >= 50 ? "D" : "F";
+    string stampText = pct >= 90 ? "Excellent" : pct >= 70 ? "Well Done" : pct >= 50 ? "Fair Attempt" : "Needs Revision";
+    string stampClass = pct >= 50 ? "" : "low";
+    string mm = (elapsed / 60).ToString("D2");
+    string ss = (elapsed % 60).ToString("D2");
+}
+
+<div class="result-hero">
+    <span class="eyebrow">Marked Paper</span>
+    <div class="grade-wrap">
+        <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 189.6 60.0 L 192.5 68.6 L 188.5 76.9 L 185.3 85.5 L 177.5 93.0 L 163.6 97.3 L 151.9 102.0 L 143.0 109.5 L 127.2 109.2 L 113.6 110.5 L 100.0 115.1 L 86.0 111.8 L 71.1 112.2 L 58.5 107.8 L 44.7 104.7 L 35.8 97.7 L 22.4 93.1 L 12.6 86.1 L 10.2 77.1 L 5.7 68.8 L 6.4 60.0 L 14.3 52.0 L 12.4 43.3 L 19.7 36.0 L 29.2 29.8 L 39.4 24.4 L 44.4 15.1 L 58.2 11.8 L 70.4 6.6 L 84.7 3.2 L 100.0 3.2 L 115.4 3.0 L 128.6 8.3 L 143.2 10.2 L 153.3 17.0 L 166.5 21.0 L 175.1 28.0 L 176.2 37.2 L 182.2 44.3 L 187.1 51.9 L 196.3 60.0 Z"
+                  stroke="#c07b6a" stroke-width="2.5" stroke-linejoin="round" opacity="0.85" />
+        </svg>
+        <div class="grade-text">@grade</div>
+    </div>
+    <div class="stamp @stampClass">@stampText</div>
+    <h2>@score / @total correct</h2>
+    <p class="subline">@pct.ToString("F0")% · @mm:@ss · @ViewBag.PdfName</p>
+    <div class="result-actions">
+        <a href="/" class="btn btn-primary">New Paper</a>
+        <button type="button" class="btn btn-outline" onclick="window.print()">Download Report (PDF)</button>
+    </div>
+</div>
+
+<div class="review-section">
+    <h3>Question Review</h3>
+    @foreach (var q in Model)
+    {
+        bool answered = q.UserAnswer.HasValue;
+        bool correct = answered && q.UserAnswer!.Value == q.CorrectIndex;
+        string explanationLabel = correct ? "Why this is correct" : (answered ? "Where you went wrong" : "You skipped this — here's the answer");
+        <div class="review-card @(correct ? "correct" : "incorrect")">
+            <div class="review-header">
+                <span class="result-icon">@(correct ? "✓" : "✗")</span>
+                <strong>Q@(q.Number). @q.Question</strong>
+            </div>
+            <div class="review-body">
+                @for (int j = 0; j < q.Options.Count; j++)
+                {
+                    <div class="review-option @(j == q.CorrectIndex ? "is-correct" : "") @(q.UserAnswer == j && j != q.CorrectIndex ? "is-wrong" : "")">
+                        <span>@((char)('A' + j)). @q.Options[j]</span>
+                        @if (j == q.CorrectIndex) { <span class="tag">Correct</span> }
+                        @if (q.UserAnswer == j && j != q.CorrectIndex) { <span class="tag wrong-tag">Your answer</span> }
+                    </div>
+                }
+                <div class="explanation">
+                    <span class="explanation-label">@explanationLabel</span>
+                    @q.Explanation
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    // Save this result to the local "Previously Set" history, most recent first, capped at 10
+    (function saveHistory() {
+        let history = [];
+        try { history = JSON.parse(localStorage.getItem('quizDeskHistory') || '[]'); } catch (e) { history = []; }
+        history.unshift({
+            name: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.PdfName as string ?? "Document")),
+            score: '@score/@total'
+        });
+        history = history.slice(0, 10);
+        localStorage.setItem('quizDeskHistory', JSON.stringify(history));
+    })();
+</script>
+}
